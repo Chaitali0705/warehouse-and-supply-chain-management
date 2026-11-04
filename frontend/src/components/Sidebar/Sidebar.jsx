@@ -1,0 +1,102 @@
+import React from 'react';
+import {
+  Box,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Divider,
+} from '@mui/material';
+import { useLocation, useNavigate } from 'react-router-dom';
+import useAuthStore from '@store/authStore';
+import { getRoleFromToken } from '@utils/auth';
+
+const Sidebar = ({ width = 264, headerHeight = 60 }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const role = getRoleFromToken(accessToken);
+
+  const menuItems = [
+    { text: 'Warehouse', path: '/warehouse', roles: ['admin', 'manager', 'warehouse_staff', 'procurement', 'sales', 'logistics', 'analyst'] },
+    { text: 'Procurement', path: '/procurement', roles: ['admin', 'manager', 'procurement'] },
+    { text: 'Sales', path: '/sales', roles: ['admin', 'manager', 'sales'] },
+    { text: 'Shipment', path: '/shipments', roles: ['admin', 'manager', 'warehouse_staff', 'logistics'] },
+    { text: 'Inventory', path: '/inventory', roles: ['admin', 'manager', 'warehouse_staff', 'procurement'] },
+    { text: 'Reports', path: '/reports', roles: ['admin', 'manager', 'warehouse_staff', 'procurement', 'sales', 'analyst'] },
+    { text: 'Demand Planning', path: '/demand-planning', roles: ['admin', 'manager', 'procurement', 'sales', 'analyst'] },
+    { text: 'Audit Logs', path: '/audit-logs', roles: ['admin', 'manager', 'analyst'] },
+    { text: 'Users', path: '/users', roles: ['admin', 'manager'] },
+  ].filter((item) => item.roles.includes(role));
+
+  return (
+    <Box
+      sx={{
+        width,
+        height: `calc(100vh - ${headerHeight}px)`,
+        background: 'white',
+        position: 'fixed',
+        top: `${headerHeight}px`,
+        left: 0,
+        overflowY: 'auto', // Cuộn nếu nội dung vượt quá 1024px
+        borderRight: '1px solid #e0e0e0',
+        zIndex: 1000,
+      }}
+    >
+      <List
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.75,
+          mt: 1,
+        }}
+      >
+        {menuItems.map((item) => (
+          <React.Fragment key={item.text}>
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={() => !item.disabled && navigate(item.path)}
+                disabled={item.disabled}
+                sx={{
+                  borderRadius: '8px',
+                  mx: 1, // margin x để cách 2 bên
+                  '&.Mui-selected': {
+                    '& .MuiListItemText-primary': {
+                      fontWeight: 600,
+                      color: 'black',
+                    },
+                    '&:hover': {
+                      backgroundColor: '#f2f2f2',
+                    },
+                    backgroundColor: '#f2f2f2',
+                  },
+                  '&:hover': {
+                    backgroundColor: item.disabled ? 'inherit' : '#f2f2f2',
+                  },
+                  color: item.disabled ? '#757575' : '#616161',
+                }}
+                selected={location.pathname === item.path}
+              >
+                <ListItemText
+                  primary={item.text}
+                  sx={{
+                    '& .MuiListItemText-primary': {
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      fontFamily: 'Roboto, sans-serif',
+                    },
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+            {(item.text === 'Suppliers' || item.text === 'Purchase Orders') && (
+              <Divider />
+            )}
+          </React.Fragment>
+        ))}
+      </List>
+    </Box>
+  );
+};
+
+export default Sidebar;

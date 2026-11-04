@@ -1,0 +1,51 @@
+name: Code check
+
+on:
+  workflow_call:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        folder: [backend, frontend]
+
+    name: check
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ${{ matrix.folder }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ${{ matrix.folder }}
+
+
+      - name: Generate Prisma Client
+        if: matrix.folder == 'backend'
+        run: npx prisma generate
+        working-directory: ${{ matrix.folder }}
+        
+      - name: Type checking
+        if: matrix.folder == 'backend'
+        run: npx tsc --noEmit
+        working-directory: ${{ matrix.folder }}
+
+      - name: ESlint Checking
+        run: npm run lint
+        working-directory: ${{ matrix.folder }}
+
+      - name: Prettier Checking
+        if: matrix.folder == 'backend'
+        run: npm run format:check
+        working-directory: ${{ matrix.folder }}

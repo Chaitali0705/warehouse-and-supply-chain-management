@@ -1,0 +1,201 @@
+# =========================
+# General
+# =========================
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.test
+.env.*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# =========================
+# Node.js (Backend + Frontend)
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+# package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build output
+dist/
+build/
+.cache/
+.next/
+out/
+coverage/
+
+# Jest
+coverage/
+*.lcov
+
+# =========================
+# Prisma
+# =========================
+prisma/migrations/
+.prisma/
+
+# =========================
+# Logs
+# =========================
+logs
+*.log
+logs/**/*.log
+
+# =========================
+# Docker
+# =========================
+/docker-data
+/.docker
+*.pid
+*.seed
+docker-compose.override.yml
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.iml
+*.sublime-workspace
+*.sublime-project
+
+# =========================
+# Misc
+# =========================
+/tmp
+
+# Temporary documentation and test files (backend team)
+backend/BRANCH_CHECK_REPORT.md
+backend/INVITE_SYSTEM_SUMMARY.md
+backend/COMPREHENSIVE_VALIDATION_REPORT.md
+backend/INVITE_SYSTEM_GUIDE.md
+backend/INVITE_SYSTEM_IMPLEMENTATION.md
+backend/test/inventory.e2e-spec.ts
+backend/API_MODULES_GUIDE.md
+backend/test/jest-e2e.json
+
+# =========================
+# Terraform / Infrastructure as Code
+# =========================
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+
+# Exclude all .tfvars files, which are likely to contain sensitive data, such as
+# password, private keys, and other secrets. These should not be part of version control as
+# they are data points which are potentially sensitive and subject to change depending on
+# the environment.
+*.tfvars
+
+# Ignore override files as they are usually used to override resources locally and so
+# are not checked in
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Include override files you do want to add to version control using negated pattern
+# !example_override.tf
+
+# Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
+# example: *tfplan*
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
+
+# =========================
+# Python (if any)
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# =========================
+# Database
+# =========================
+*.db
+*.sqlite3
+
+# =========================
+# Backup files
+# =========================
+*.bak
+*.backup
+*.old
+
+# Local document rendering and report preview artifacts
+_docx_render/
+.docx_deps/
+docs/report_render/
+
+# =========================
+# Package files
+# =========================
+*.tar.gz
+*.zip

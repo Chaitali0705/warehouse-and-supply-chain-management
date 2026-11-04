@@ -1,0 +1,204 @@
+name: Deploy Applications
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/deploy-apps.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+      deploy_backend:
+        description: "Deploy backend"
+        required: true
+        default: true
+        type: boolean
+      deploy_frontend:
+        description: "Deploy frontend"
+        required: true
+        default: true
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: se214-semicolon/warehouse-and-supply-chain-management-system/backend
+  FRONTEND_IMAGE_NAME: se214-semicolon/warehouse-and-supply-chain-management-system/frontend
+
+jobs:
+  # Code quality checks first
+  code-check:
+    uses: ./.github/workflows/code-check.yml
+
+  # Build and test (reusable workflow)
+  build-and-test:
+    needs: code-check
+    uses: ./.github/workflows/build-and-test.yml
+
+  build-images:
+    needs: [code-check, build-and-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        app: [backend, frontend]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ matrix.app == 'backend' && env.BACKEND_IMAGE_NAME || env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        if: |
+          (matrix.app == 'backend' && (needs.build-and-test.outputs.backend-changed == 'true' || github.event_name == 'workflow_dispatch')) ||
+          (matrix.app == 'frontend' && (needs.build-and-test.outputs.frontend-changed == 'true' || github.event_name == 'workflow_dispatch'))
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.app }}
+          file: ./${{ matrix.app }}/Dockerfile.prod
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_BASE_URL=${{ github.ref == 'refs/heads/main' && vars.BACKEND_URL_PRODUCTION || vars.BACKEND_URL_STAGING }}
+
+  deploy-staging:
+    if: |
+      github.ref == 'refs/heads/develop' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    needs: [code-check, build-and-test, build-images]
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Backend to Azure App Service
+        if: |
+          needs.build-and-test.outputs.backend-changed == 'true' ||
+          github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_backend == 'true'
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: warehouse-mgmt-staging-backend
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:develop
+
+      - name: Deploy Frontend to Azure App Service
+        if: |
+          needs.build-and-test.outputs.frontend-changed == 'true' ||
+          github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_frontend == 'true'
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: warehouse-mgmt-staging-frontend
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:develop
+
+      - name: Run Database Migrations
+        if: needs.build-and-test.outputs.backend-changed == 'true'
+        run: |
+          # Run Prisma migrations using Azure CLI
+          az webapp config appsettings set \
+            --resource-group warehouse-mgmt-staging-rg \
+            --name warehouse-mgmt-staging-backend \
+            --settings RUN_MIGRATIONS=true
+
+  deploy-production:
+    if: |
+      github.ref == 'refs/heads/main' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    needs: [code-check, build-and-test, build-images]
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Deploy directly to production (no deployment slots in Basic B1 tier)
+      - name: Deploy Backend to Production
+        if: |
+          needs.build-and-test.outputs.backend-changed == 'true' ||
+          github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_backend == 'true'
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: warehouse-mgmt-production-backend
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:latest
+
+      - name: Deploy Frontend to Production
+        if: |
+          needs.build-and-test.outputs.frontend-changed == 'true' ||
+          github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_frontend == 'true'
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: warehouse-mgmt-production-frontend
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
+
+      - name: Run Database Migrations
+        if: |
+          needs.build-and-test.outputs.backend-changed == 'true' ||
+          github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_backend == 'true'
+        run: |
+          # Run Prisma migrations using Azure CLI
+          az webapp config appsettings set \
+            --resource-group warehouse-mgmt-production-rg \
+            --name warehouse-mgmt-production-backend \
+            --settings RUN_MIGRATIONS=true
+
+      # Health check on production (after direct deployment)
+      - name: Final Health Check
+        run: |
+          echo "Performing health checks on production..."
+          sleep 30  # Wait for containers to fully start
+
+          # Check backend health
+          backend_health=$(curl -s -o /dev/null -w "%{http_code}" https://warehouse-mgmt-production-backend.azurewebsites.net/health)
+          if [ "$backend_health" != "200" ]; then
+            echo "Production backend health check failed with status: $backend_health"
+            exit 1
+          fi
+
+          # Check frontend health
+          frontend_health=$(curl -s -o /dev/null -w "%{http_code}" https://warehouse-mgmt-production-frontend.azurewebsites.net/)
+          if [ "$frontend_health" != "200" ]; then
+            echo "Production frontend health check failed with status: $frontend_health"
+            exit 1
+          fi
+
+          echo "Production deployment successful!"
