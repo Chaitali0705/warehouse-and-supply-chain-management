@@ -12,15 +12,19 @@ import {
   Tab,
   Stack,
   Fade,
+  Alert,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 
 import InventoryService from "@/services/inventory.service";
 import ProductBatchService from "@/services/batch.service";
 import LocationService from "@/services/location.service";
 import UserService from "@/services/user.service";
+import ProductService from "@/services/product.service";
+import BarcodeScannerDialog from "@/components/BarcodeScannerDialog";
 import DataTable from "@/components/DataTable";
 import SearchBar from "@/components/SearchBar";
 import ActionButtons from "@/components/ActionButton";
@@ -47,6 +51,8 @@ const Inventory = () => {
   const [openMovement, setOpenMovement] = useState(false);
   const [movementType, setMovementType] = useState("");
   const [selectedRow, setSelectedRow] = useState(null);
+  const [openScanner, setOpenScanner] = useState(false);
+  const [scanMessage, setScanMessage] = useState("");
 
   const fetchInventoryData = useCallback(async (batchId) => {
     if (!batchId) return;
@@ -137,6 +143,35 @@ const Inventory = () => {
     setSearchParams({});
   };
 
+  const handleBarcodeDetected = async (barcode) => {
+    setScanMessage("");
+    const normalized = barcode.trim().toLowerCase();
+    let matchedBatch = batches.find(
+      (batch) => batch.barcodeOrQr?.toLowerCase() === normalized || batch.product?.barcode?.toLowerCase() === normalized
+    );
+
+    if (!matchedBatch) {
+      try {
+        const response = await ProductService.getByBarcode(barcode);
+        const product = response?.data?.data || response?.data;
+        matchedBatch = batches.find((batch) => batch.productId === product?.id || batch.product?.id === product?.id);
+      } catch {
+        setScanMessage(`No product or batch was found for barcode: ${barcode}`);
+        return;
+      }
+    }
+
+    if (!matchedBatch) {
+      setScanMessage(`Product found for ${barcode}, but it has no available batch to inspect.`);
+      return;
+    }
+
+    setSelectedBatch(matchedBatch);
+    setSearchParams({ batchId: matchedBatch.id });
+    await fetchInventoryData(matchedBatch.id);
+    setScanMessage(`Barcode matched ${matchedBatch.product?.name || 'a product'} - batch ${matchedBatch.batchNo}.`);
+  };
+
   const handleOpenAction = (type, row) => {
     setMovementType(type);
     setSelectedRow(row);
@@ -194,6 +229,8 @@ const Inventory = () => {
             </Box>
           </Box>
 
+          {scanMessage && <Alert severity={scanMessage.startsWith('No ') ? 'warning' : 'success'}>{scanMessage}</Alert>}
+
           <Box
             sx={{
               display: "flex",
@@ -243,6 +280,14 @@ const Inventory = () => {
                 }}
               >
                 Check Stock
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<QrCodeScannerIcon />}
+                onClick={() => setOpenScanner(true)}
+                sx={{ borderRadius: 2, textTransform: "none", minWidth: 145, height: "56px" }}
+              >
+                Scan Barcode
               </Button>
               <Button
                 variant="outlined"
@@ -368,6 +413,11 @@ const Inventory = () => {
         selectedInventory={selectedRow}
         onClose={() => setOpenMovement(false)}
         onSubmit={handleSubmitAction}
+      />
+      <BarcodeScannerDialog
+        open={openScanner}
+        onClose={() => setOpenScanner(false)}
+        onDetected={handleBarcodeDetected}
       />
     </Box>
   );

@@ -6,6 +6,8 @@ const BASE = "/products";
 const ProductService = {
   getAll: () => api.get(BASE),
 
+  getByBarcode: (barcode) => api.get(`${BASE}/barcode/${encodeURIComponent(barcode)}`),
+
   getById: async (id) => {
     try {
       const response = await api.get(`${BASE}/${id}`);
