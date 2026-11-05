@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PoStatus, PrismaClient } from '@prisma/client';
+import { PoStatus, PrismaClient, StockMovementType } from '@prisma/client';
 
 const databaseUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('POSTGRES_URL or DATABASE_URL is missing');
@@ -117,6 +117,26 @@ async function main() {
         algorithmUsed: 'AI_DEMO_RULE_BASED',
       },
     });
+
+    // The forecasting algorithm uses historical sale_issue movements rather
+    // than pre-created forecasts. These 14 dated transactions guarantee a
+    // non-zero average daily demand for the interactive demo.
+    if (scenario.sku === 'AI-DEMO-DMD-001') {
+      await prisma.stockMovement.createMany({
+        data: Array.from({ length: 14 }, (_, index) => ({
+          movementType: StockMovementType.sale_issue,
+          productId: product.id,
+          productBatchId: batch.id,
+          fromLocationId: location.id,
+          quantity: 6 + (index % 4),
+          reference: 'AI-DEMO-HISTORICAL-SALES',
+          note: 'Synthetic historical sale for demand forecasting demonstration',
+          idempotencyKey: `ai-demo-demand-sale-${index + 1}`,
+          createdAt: daysFromNow(-2 * (index + 1)),
+        })),
+        skipDuplicates: true,
+      });
+    }
   }
 
   await prisma.purchaseOrder.upsert({
