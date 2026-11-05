@@ -121,7 +121,14 @@ export class AiInsightsService {
       });
     }
 
-    const ranked = insights.sort((a, b) => b.score - a.score).slice(0, 20);
+    const sorted = insights.sort((a, b) => b.score - a.score);
+    // Keep the dashboard useful for decision-making: reserve a place for the
+    // highest-risk signal from every analysis category, then fill remaining
+    // slots by overall risk score.
+    const categoryLeaders = (['Inventory', 'Expiry', 'Demand', 'Procurement'] as const)
+      .map((category) => sorted.find((item) => item.category === category))
+      .filter((item): item is Insight => Boolean(item));
+    const ranked = [...categoryLeaders, ...sorted.filter((item) => !categoryLeaders.some((leader) => leader.id === item.id))].slice(0, 20);
     return {
       success: true,
       generatedAt: now,

@@ -36,6 +36,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "seed:realistic": "tsx scripts/seed-realistic-data.ts",
+    "seed:ai-demo": "tsx scripts/seed-ai-demo-data.ts",
     "db:migrate": "./scripts/run-migrations.sh",
     "db:migrate:prod": "NODE_ENV=production ./scripts/run-migrations.sh"
   },
